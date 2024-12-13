@@ -1,0 +1,19 @@
+name: Test PR
+
+on:
+  pull_request_target:
+  workflow_call:
+
+jobs:
+  test-protocol-with-repo-variables:
+    if: vars.use_custom_variables
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+            export PROTOCOL=${{vars.PROCOL}} && ./tests/setup_and_run.sh
+    test-protocol-with-repo-variables:
+    if: ! vars.use_custom_variables
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+            source env.sh && ./tests/setup_and_run.sh
