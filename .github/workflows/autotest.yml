@@ -3,6 +3,7 @@ name: Test PR
 on:
   pull_request_target:
   workflow_call:
+  workflow_dispatch:
 
 jobs:
   test-protocol-with-repo-variables:
