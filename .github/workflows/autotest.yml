@@ -7,13 +7,13 @@ on:
 
 jobs:
   test-protocol-with-repo-variables:
-    if: vars.use_custom_variables
+    if: ${{ vars.USE_CUSTOM_VARIABLES == 'true' }}
     runs-on: ubuntu-latest
     steps:
       - run: |
             export PROTOCOL=${{vars.PROTOCOL}} && ./tests/setup_and_run.sh
   test-protocol-with-env-variables:
-    if: ! vars.use_custom_variables
+    if: ${{ vars.USE_CUSTOM_VARIABLES != 'true' }}
     runs-on: ubuntu-latest
     steps:
       - run: |
