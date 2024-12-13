@@ -13,8 +13,8 @@ fi
 dir_names=("http" "ftp" "smtp" "irc")
 dir_index=$((PROTOCOL - 1))
 tests_dir="tests/${dir_names[$dir_index]}"
-setup_sh="${test_dir}/install.sh"
-test_sh="${test_dir}/run.sh"
+setup_sh="${tests_dir}/install.sh"
+test_sh="${tests_dir}/run.sh"
 
 echo "Executing install.sh script: ${setup_sh}"
 ${setup_sh}
