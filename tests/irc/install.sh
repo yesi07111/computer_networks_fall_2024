@@ -1,1 +1,1 @@
-docker run -d ircd/unrealircd:latest
+docker run -d ircd/unrealircd:edge
