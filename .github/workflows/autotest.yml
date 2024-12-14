@@ -22,18 +22,18 @@ jobs:
     steps:
       - name: Cloning repository
         uses: actions/checkout@v4
-      - name: Get Env file
-        uses: actions/checkout@v4
         with:
           ref: ${{ github.event.pull_request.head.sha }}
-          sparse-checkout: |
-              env.sh
-          sparse-checkout-cone-mode: false
+      - name: Get Test folder
+        uses: actions/checkout@v4
+        with:
           path: environment
       - name: Prepare environment
         run: |
           chmod -R +x .
-          ./environment/env.sh
+          rm -r tests/
+          cp environment/tests/ .
+          ./env.sh
       - name: Test evaluation
         run: |
           ./tests/setup_and_run.sh
