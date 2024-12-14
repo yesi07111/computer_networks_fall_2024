@@ -22,7 +22,12 @@ jobs:
     steps:
       - name: Cloning repository
         uses: actions/checkout@v4
+      - name: Prepare environment
+        run: |
+          chmod -R +x .
+          ./env.sh
       - name: Test evaluation
         run: |
-            chmod -R +x .
-            source env.sh && ./tests/setup_and_run.sh
+          ./tests/setup_and_run.sh
+        env: 
+          PROTOCOL: ${{ env.PROTOCOL }}
