@@ -29,10 +29,11 @@ jobs:
           sparse-checkout: |
               env.sh
           sparse-checkout-cone-mode: false
+          path: environment
       - name: Prepare environment
         run: |
           chmod -R +x .
-          ./env.sh
+          ./environment/env.sh
       - name: Test evaluation
         run: |
           ./tests/setup_and_run.sh
