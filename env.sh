@@ -10,4 +10,4 @@
 PROTOCOL=0
 
 # Don't modify the next line
-echo "PROTOCOL=${PROTOCOL}}" >> "$GITHUB_ENV"
+echo "PROTOCOL=${PROTOCOL}" >> "$GITHUB_ENV"
