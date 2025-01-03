@@ -21,7 +21,7 @@ def make_request(method, path, headers=None, data=None):
 #         headers_json = json.dumps(headers) if headers else '{}'
 #         data_json = json.dumps(data) if data else '{}'
 
-#         command = f'python3 client.py {method} "http://localhost:8080{path}" {headers_json} "{data_json}"'
+#         command = f'python3 tests/http/client.py {method} "http://localhost:8080{path}" {headers_json} "{data_json}"'
 #         response_string = os.popen(command).read()
 
 #         response_data = json.loads(response_string)
