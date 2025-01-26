@@ -1,6 +1,7 @@
 import socket
 from http import HTTPStatus
 from utils import *
+import ssl
 
 HTTP_METHODS = [
     'GET',
@@ -15,29 +16,73 @@ HTTP_METHODS = [
 ]
 
 class HttpServer:
+    
     def __init__(self, host: str = 'localhost', port: int = 8080):
+        """
+        Initialize the server with a host and port.
+
+        Args:
+            host (str): The hostname or IP address to bind the server to.
+            port (int): The port number to bind the server to.
+            use_tls (bool): Whether to use TLS for secure connections.
+            certfile (str): Path to the SSL certificate file.
+            keyfile (str): Path to the SSL key file.
+        """
         self.host = host
         self.port = port
+        self.use_tls = use_tls
+        self.certfile = certfile
+        self.keyfile = keyfile
+        if self.use_tls and (not self.certfile or not self.keyfile):
+            raise ValueError("TLS enabled but certfile or keyfile is not provided.")
 
     def start(self):
+        """
+        Start the HTTP server to listen for incoming connections.
+        """
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server_socket:
+            # Bind the socket to the specified host and port
             server_socket.bind((self.host, self.port))
+            # Enable the server to accept connections, with a backlog of 5
             server_socket.listen(5)
+            
+            if self.use_tls:
+                context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+                context.load_cert_chain(certfile=self.certfile, keyfile=self.keyfile)
+                server_socket = context.wrap_socket(server_socket, server_side=True)
+            
+            protocol = "https" if self.use_tls else "http"
+            # Print a message indicating the server is listening
             print(f"Server listening on {self.host}:{self.port}")
 
             while True:
                 client_socket, client_address = server_socket.accept()
                 with client_socket:
                     print(f"Connection from {client_address}")
-                    request_data = client_socket.recv(4096).decode('utf-8')
-                    if not request_data:
-                        continue
-                    
-                    http_request = self.parse_http_request(request_data)
-                    http_response = self.handle_request(http_request)
-                    client_socket.sendall(http_response.build_response().encode('utf-8'))
+                    try:
+                        request_data = client_socket.recv(4096).decode('utf-8')
+                        if not request_data:
+                            continue
+                        
+                        http_request = self.parse_http_request(request_data)
+                        http_response = self.handle_request(http_request)
+                        client_socket.sendall(http_response.build_response().encode('utf-8'))
+                    except Exception as e:
+                        print(f"Error handling request: {e}")
+                        client_socket.sendall(self.generate_error_response(HTTPStatus.INTERNAL_SERVER_ERROR).build_response().encode('utf-8'))
 
+
+    # Parse the HTTP request data and return a request object
     def parse_http_request(self, request_data: str) -> HttpRequest:
+        """
+        Parse the HTTP request data and return a request object.
+
+        Args:
+            request_data (str): The raw HTTP request data.
+
+        Returns:
+            HttpRequest: The parsed HTTP request object.
+        """
         lines = request_data.split("\r\n")
         if not lines:
             raise ValueError("Empty request data")
@@ -61,9 +106,18 @@ class HttpServer:
         body = "\r\n".join(lines[index+1:])
         return HttpRequest(method, uri, headers, body)
 
+    # Handle the HTTP request and return a response
     def handle_request(self, request: HttpRequest) -> HttpResponse:
         try:
-            # Validate HTTP method
+            """
+        Handle the HTTP request and return a response.
+
+        Args:
+            request (HttpRequest): The HTTP request object.
+
+        Returns:
+            HttpResponse: The HTTP response object.
+        """
             if request.method not in HTTP_METHODS:
                 return self.generate_error_response(HTTPStatus.METHOD_NOT_ALLOWED)
 
@@ -87,6 +141,15 @@ class HttpServer:
             return self.generate_error_response(HTTPStatus.INTERNAL_SERVER_ERROR)
 
     def generate_error_response(self, status: HTTPStatus) -> HttpResponse:
+        """
+        Generate an HTTP error response.
+
+        Args:
+            status (HTTPStatus): The HTTP status code for the error response.
+
+        Returns:
+            HttpResponse: The HTTP error response object.
+        """
         body = f"<html><body><h1>{status.phrase}</h1><p>{status.description}</p></body></html>"
         headers = {
             "Content-Type": "text/html",
