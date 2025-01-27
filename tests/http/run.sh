@@ -10,7 +10,7 @@ sleep 2
 
 # Ejecutar las pruebas
 echo "Ejecutando las pruebas..."
-python3 /tests/http/tests.py
+python3 ./tests/http/tests.py
 
 # Detener el servidor después de las pruebas
 echo "Deteniendo el servidor..."
