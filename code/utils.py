@@ -41,17 +41,22 @@ class HttpResponse:
         self.reason_phrase: str = reason_phrase
         self.headers: Dict[str, str] = headers
         self.body: str = body
+    
+    def to_dict(self) -> dict:
+        return {
+            "status": int(self.status_code),
+            "body": self.body,
+            "headers": self.headers
+        }
 
     def build_response(self) -> str:
         response_line = f"{self.version} {self.status_code} {self.reason_phrase}\r\n"
-
         headers = ""
         for key, value in self.headers.items():
             headers += f"{key}: {value}\r\n"
-
         blank_line = "\r\n"
-
-        return response_line + headers + blank_line + self.body
+        response_str = response_line + headers + blank_line + self.body
+        return response_str
 
     def __str__(self) -> str:
         response_str = f'HTTP Version: {self.version}\nStatus Code: {self.status_code}\nReason Phrase: {self.reason_phrase}\nHeaders:\n'
@@ -59,7 +64,7 @@ class HttpResponse:
             response_str += f' {key}: {value}\n'
         response_str += f'Body:\n' + self.body if self.body else 'No Body'
         return response_str
-
+    
 def build_header_list(elements: list) -> str:
     """
     Construye una lista de encabezados HTTP que cumpla con las reglas de ABNF para listas.

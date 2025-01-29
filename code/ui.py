@@ -1,8 +1,11 @@
+from http import HTTPStatus
 import socket
 import tkinter as tk
 from tkinter import ttk, messagebox, simpledialog
 from threading import Thread
-from OtherClient import HttpClient
+
+import chardet
+from client import HttpClient
 from utils import HttpResponse, HttpRequest
 from server import HttpServer
 import os
@@ -47,11 +50,11 @@ class App:
     def __init__(self, root):
         self.root = root
         self.root.title("HTTP Client-Server Interface")
-        self.root.geometry("1000x800")
+        self.root.geometry("1200x1000")
         self.current_response_index = 0
         self.responses = []
         self.create_widgets()
-
+    
     def create_widgets(self):
         # Main Frame
         main_frame = ttk.Frame(self.root)
@@ -89,6 +92,16 @@ class App:
         self.body_size_threshold.grid(row=5, column=1, sticky="ew", padx=5)
         self.body_size_threshold.insert(0, "1048576")  # Default 1 MB
 
+        # Custom Body Section
+        custom_body_frame = ttk.Frame(client_frame)
+        custom_body_frame.grid(row=0, column=2, rowspan=6, sticky="nsew", padx=5, pady=5)
+
+        self.custom_body_label = ttk.Label(custom_body_frame, text="Custom\nBody:")
+        self.custom_body_label.pack(anchor="w")
+
+        self.custom_body = tk.Text(custom_body_frame, height=8, width=40, wrap="word")
+        self.custom_body.pack(fill="both", expand=True)
+
         ttk.Label(client_frame, text="Headers Examples:").grid(row=6, column=0, sticky="nw")
         self.headers_listbox = tk.Listbox(client_frame, selectmode="multiple", height=6)
         for header in HTTP_HEADERS.keys():
@@ -102,9 +115,10 @@ class App:
         self.header_values_listbox.grid(row=7, column=1, sticky="ew", pady=5)
         self.header_values_listbox.bind('<Button-1>', lambda e: 'break')  # Make listbox read-only
 
-        self.custom_headers_label = ttk.Label(client_frame, text="Custom Headers:")
+        self.custom_headers_label = ttk.Label(client_frame, text="Custom\nHeaders:")
         self.custom_headers_label.grid(row=8, column=0, sticky="nw")
-        self.custom_headers = tk.Text(client_frame, height=5, wrap="word")
+        
+        self.custom_headers = tk.Text(client_frame, height=5, width=40, wrap="word")
         self.custom_headers.grid(row=8, column=1, sticky="ew", pady=5)
         self.set_default_headers()
 
@@ -139,7 +153,7 @@ class App:
         self.server_port.grid(row=1, column=1, sticky="ew", padx=5)
         self.server_port.insert(0, "8080")
 
-        ttk.Button(server_frame, text="Start Server", command=self.start_server_thread).grid(row=2, column=0, columnspan=2, pady=5)
+        ttk.Button(server_frame, text="Start Server", command=self.start_server).grid(row=2, column=0, columnspan=2, pady=5)
 
         # Configure grid weights
         main_frame.columnconfigure(0, weight=1)
@@ -165,49 +179,6 @@ class App:
         self.root.after(0, lambda: messagebox.showinfo("Info", "Sending request..."))
         thread = Thread(target=self.send_request)
         thread.start()
-
-    def send_request(self):
-        print("Preparing to send request...")
-        host = self.client_host.get()
-        port = int(self.client_port.get())
-        method = self.method_var.get()
-        uri = self.client_uri.get()
-        use_tls = self.use_tls.get()
-        body_size_threshold = int(self.body_size_threshold.get())
-        use_pipeline = self.use_pipeline.get()
-
-        print(f"Host: {host}, Port: {port}, Method: {method}, URI: {uri}, Use TLS: {use_tls}, Pipeline: {use_pipeline}")
-
-        if not HttpClient.is_valid_host(self, host):
-            self.root.after(0, lambda: messagebox.showerror("Error", "Invalid host"))
-            return
-
-        headers = {}
-        custom_headers_text = self.custom_headers.get("1.0", tk.END).strip()
-        if custom_headers_text:
-            custom_headers = dict(line.split(": ", 1) for line in custom_headers_text.splitlines() if ": " in line)
-            headers.update(custom_headers)
-        if 'Host' not in headers:
-            headers['Host'] = host
-
-        # Create multiple requests for demonstration
-        requests = [
-            HttpRequest(method=method, uri=uri, headers=headers)
-        ]
-
-        client = HttpClient(host, port, use_tls, body_size_threshold=body_size_threshold)
-
-        try:
-            print("Sending requests...")
-            new_responses = client.send_requests(requests, use_pipeline=use_pipeline)
-            print("Requests sent successfully.")
-            self.responses = new_responses + self.responses  # Add new responses to the front
-            self.current_response_index = 0
-            self.root.after(0, self.display_current_response)
-            self.root.after(0, self.handle_response_codes, new_responses, requests)
-        except Exception as e:
-            print(f"Error sending request: {e}")
-            self.root.after(0, lambda e=e: messagebox.showerror("Error", str(e)))
 
     def display_current_response(self):
         print("Displaying current response...")
@@ -247,8 +218,9 @@ class App:
             self.display_current_response()
 
     def handle_response_codes(self, responses, requests):
-        print("Handling response codes...")
+        print("Handling response codes in ui...")
         for i, (response, request) in enumerate(zip(responses, requests)):
+            print(f"response: {response} \nrequest: {request}")
             if response.status_code.startswith('2'):
                 self.display_2xx_info(response, request, i)
             elif response.status_code.startswith('3'):
@@ -425,11 +397,6 @@ class App:
         else:
             self.root.after(0, lambda: messagebox.showinfo("Info", "No response body to display"))
 
-    def start_server_thread(self):
-        print("Starting server thread...")
-        thread = Thread(target=self.start_server)
-        thread.start()
-
     def start_server(self):
         print("Starting server...")
         host = self.server_host.get()
@@ -460,6 +427,58 @@ class App:
             port = 443 if self.use_tls.get() else 80
 
         return host, port, path
+
+    # In ui.py, update the send_request method to correctly handle the response
+    def send_request(self):
+        print("Preparing to send request...")
+        host = self.client_host.get()
+        port = int(self.client_port.get())
+        method = self.method_var.get()
+        uri = self.client_uri.get()
+        use_tls = self.use_tls.get()
+        body_size_threshold = int(self.body_size_threshold.get())
+        use_pipeline = self.use_pipeline.get()
+        body: str = self.custom_body.get("1.0", tk.END).strip()
+
+        if not body:
+            body = None
+
+        print(f"Host: {host}, Port: {port}, Method: {method}, URI: {uri}, Use TLS: {use_tls}, Pipeline: {use_pipeline}")
+
+        if not HttpClient.is_valid_host(self, host):
+            self.root.after(0, lambda: messagebox.showerror("Error", "Invalid host"))
+            return
+
+        headers = {}
+        custom_headers_text = self.custom_headers.get("1.0", tk.END).strip()
+        if custom_headers_text:
+            custom_headers = dict(line.split(": ", 1) for line in custom_headers_text.splitlines() if ": " in line)
+            headers.update(custom_headers)
+        if 'Host' not in headers:
+            headers['Host'] = host
+
+        # Create multiple requests for demonstration
+        requests = [
+            HttpRequest(method=method, uri=uri, headers=headers, body=body)
+        ]
+
+        client = HttpClient(host, port, use_tls, body_size_threshold=body_size_threshold)
+
+        try:
+            print(f"Self.responses before sending requests: {self.responses}")
+            print("Sending requests...")
+            new_responses = client.send_requests(requests, use_pipeline=use_pipeline)
+            print("Requests sent successfully.")
+            self.responses = new_responses + self.responses  # Add new responses to the front
+            print("Response: ", new_responses)
+            self.current_response_index = 0
+            print(f"Self.responses after sending requests: {self.responses}")
+            self.root.after(0, self.display_current_response)
+            self.root.after(0, self.handle_response_codes, new_responses, requests)
+        except Exception as e:
+            print(f"Error sending request: {e}")
+            self.root.after(0, lambda e=e: messagebox.showerror("Error", str(e)))
+
 
 if __name__ == "__main__":
     root = tk.Tk()

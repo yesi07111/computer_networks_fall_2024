@@ -5,7 +5,7 @@ import ssl
 import chardet
 import zlib
 import gzip
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from utils import *
 import base64
 import hashlib
@@ -36,6 +36,7 @@ class HttpClient:
             if use_pipeline:
                 # Establecer conexión una vez para el pipeline
                 sock = self._establish_connection()
+                
 
             for http_request in http_requests:
                 redirects = 0
@@ -67,7 +68,7 @@ class HttpClient:
                     cached_response = self.cache.get(cache_key)
                     if cached_response:
                         response, expiry_time, etag = cached_response
-                        if datetime.utcnow() < expiry_time:
+                        if datetime.now(timezone.utc) < expiry_time:
                             # Usar respuesta en caché si es válida
                             responses.append(response)
                             break
@@ -85,6 +86,7 @@ class HttpClient:
 
                     request_data = http_request.build_request()
                     sock.sendall(request_data.encode('utf-8'))
+                    print("Cliente ha enviado la peticion")
 
                     # Añadir la solicitud a la lista de pendientes
                     self.outstanding_requests.append(http_request)
@@ -115,7 +117,7 @@ class HttpClient:
                             max_age = self.extract_max_age(cache_control)
                             etag = response.headers.get('ETag')
                             if max_age is not None:
-                                expires = datetime.utcnow() + timedelta(seconds=max_age)
+                                expires = datetime.now(timezone.utc) + timedelta(seconds=max_age)
                                 self.cache[cache_key] = (response, expires, etag)
 
                         # Verificar integridad del mensaje
@@ -148,7 +150,7 @@ class HttpClient:
         if self.current_connections >= self.max_connections:
             raise Exception('Too many connections')
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        sock.settimeout(5)
+        sock.settimeout(15)
         if self.use_tls:
             context = ssl.create_default_context()
             sock = context.wrap_socket(sock, server_hostname=self.host)
@@ -157,6 +159,9 @@ class HttpClient:
         return sock
 
     def is_valid_host(self, host: str) -> bool:
+        if host == "localhost":
+            return True
+        
         # Validar si el host es un nombre de dominio válido
         domain_regex = re.compile(
             r'^(?:[a-zA-Z0-9]'  # Primera letra del dominio
@@ -208,19 +213,27 @@ class HttpClient:
         while True:
             try:
                 part = sock.recv(4096)
+                print("part received: ", part)
                 if not part:
                     break
                 response += part
+                print("part added to response")
             except socket.timeout:
+                print("El tiempo de espera del socket se ha agotado")
                 break
             except Exception as error:
                 print(f"Some error occurred while receiving response: {error}")
 
         try:
+            print(f"!!!!!Receiving response in client: {response}")
             encoding = chardet.detect(response)["encoding"]
             encoding = encoding if encoding else "utf-8"
+            print(f"encoding: {encoding}")
+            print(f"El mensaje que se recibe en el cliente mide: {len(response)}")
             decoded_response = response.decode(encoding)
+            print("Decoded_response: ", decoded_response)
             parsed_response = self.parse_http_response(decoded_response)
+            print("Parsed Response: ", parsed_response)
         except Exception as error:
             print(error)
             parsed_response = HttpResponse(
