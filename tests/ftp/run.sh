@@ -1,1 +1,3 @@
-./run.sh --user test --body test
+#!/bin/bash
+
+python3 tester.py
