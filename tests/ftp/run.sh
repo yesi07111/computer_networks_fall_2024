@@ -1,6 +1,6 @@
 #!/bin/bash
 
-python3 tester.py
+python3 tests/ftp/tester.py
 
 if [[ $? -ne 0 ]]; then
   exit 1
