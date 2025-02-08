@@ -152,7 +152,13 @@ class HttpClient:
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.settimeout(15)
         if self.use_tls:
-            context = ssl.create_default_context()
+            if self.host == 'localhost':
+                # context.check_hostname = False
+                # context.verify_mode = ssl.CERT_NONE
+                context = ssl.create_default_context(ssl.Purpose.SERVER_AUTH)
+                context.load_verify_locations('server.crt')
+            else:
+                context = ssl.create_default_context()
             sock = context.wrap_socket(sock, server_hostname=self.host)
         sock.connect((self.host, self.port))
         self.current_connections += 1
