@@ -1,4 +1,3 @@
-# client.py
 import ipaddress
 import json
 import argparse
@@ -42,7 +41,7 @@ class HttpClient:
             if use_pipeline:
                 # Establecer conexión una vez para el pipeline
                 sock = self._establish_connection()
-                
+
 
             for http_request in http_requests:
                 redirects = 0
@@ -334,38 +333,9 @@ class HttpClient:
         if 'Transfer-Encoding' in headers and headers['Transfer-Encoding'].endswith('chunked'):
             return body.endswith('0\r\n\r\n')
         elif 'Content-Length' in headers:
-            return (len(body) + 4 == int(headers['Content-Length']) # Add 4 because the newlines are omited
-                    or len(body) == int(headers['Content-Length'])) # In case of redirect
+            return (len(body) + 4 == int(headers['Content-Length']) 
+                    or len(body) == int(headers['Content-Length'])) 
         return True
-
-# def parse_arguments():
-#     parser = argparse.ArgumentParser(description='Process some HTTP request parameters.')
-    
-#     # Define los argumentos esperados
-#     parser.add_argument('-m', '--method', type=str, required=True, help='HTTP method')
-#     parser.add_argument('-u', '--url', type=str, required=True, help='Request URL')
-#     parser.add_argument('-h', '--headers', type=str, required=True, help='Request headers as a dictionary')
-#     parser.add_argument('-d', '--data', type=str, required=False, help='Request body data')
-
-#     # Analiza los argumentos
-#     args = parser.parse_args()
-
-#     # Convierte el string de headers a un diccionario
-#     try:
-#         headers = ast.literal_eval(args.headers)
-#         if not isinstance(headers, dict):
-#             raise ValueError
-#     except (ValueError, SyntaxError):
-#         raise ValueError("Headers must be a valid dictionary string.")
-    
-#     data = args.data if args.data else ""
-    
-#     return args.method, args.url, headers, data
-import argparse
-import ast
-import shlex
-import re
-import sys  # Asegúrate de importar sys
 
 def parse_arguments():
     parser = argparse.ArgumentParser(description='Process some HTTP request parameters.', add_help=False)
@@ -378,6 +348,7 @@ def parse_arguments():
 
     # Analiza los argumentos
     args = parser.parse_args(shlex.split(' '.join(sys.argv[1:])))
+    print(args)
     
     # Convierte el string de headers a un diccionario
     try:
@@ -436,43 +407,3 @@ if __name__ == '__main__':
     else:
         print(f"Some error found while parsing url {url}.")
  
-# if __name__ == '__main__':
-#     method, url, headers, data = parse_arguments()
-    
-#     pattern = re.compile(r"^(https?)://([^:/]+)(?::(\d+))?(.*)$")
-    
-#     matches = pattern.match(url)
-    
-#     if matches:
-#         scheme = matches.group(1)
-#         host = matches.group(2)
-#         port = matches.group(3)
-#         uri = matches.group(4)
-
-#         use_tls = scheme == "https"
-
-#         if not port:
-#             port = "443" if use_tls else "80"
-        
-#         port = int(port)
-
-#         client = HttpClient(host, port, use_tls)
-
-#         requests = [
-#             HttpRequest(method, uri, headers, data)
-#         ]
-
-#         response = client.send_requests(requests)[0]
-        
-#         status = int(response.status_code)
-#         body = response.body
-
-#         _response = {
-#             "status":status,
-#             "body":body
-#         }
-
-#         print(json.dumps(_response))
-    
-#     else:
-#         print(f"Some error found while parsing url {url}.")
