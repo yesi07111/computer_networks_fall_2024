@@ -348,7 +348,6 @@ def parse_arguments():
 
     # Analiza los argumentos
     args = parser.parse_args(shlex.split(' '.join(sys.argv[1:])))
-    print(args)
     
     # Convierte el string de headers a un diccionario
     try:
