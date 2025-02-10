@@ -10,7 +10,7 @@ sleep 2
 
 # Ejecutar las pruebas
 echo "Ejecutando las pruebas..."
-python3 ./tests/http/tests.py
+python ./tests/http/tests.py
 
 if [[ $? -ne 0 ]]; then
   echo "HTTP test failed"

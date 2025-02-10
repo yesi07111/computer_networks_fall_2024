@@ -1,5 +1,8 @@
 # client.py
 import ipaddress
+import json
+import argparse
+import ast
 import socket
 import ssl
 import chardet
@@ -11,6 +14,9 @@ import base64
 import hashlib
 from io import BytesIO
 import re
+import shlex
+import sys
+
 class HttpClient:
     def __init__(self, host: str, port: int = 80, use_tls: bool = True, max_redirects: int = 5, body_size_threshold: int = 1024 * 1024, auth: tuple = None, max_connections: int = 2):
         self.host: str = host
@@ -86,7 +92,6 @@ class HttpClient:
 
                     request_data = http_request.build_request()
                     sock.sendall(request_data.encode('utf-8'))
-                    print("Cliente ha enviado la peticion")
 
                     # Añadir la solicitud a la lista de pendientes
                     self.outstanding_requests.append(http_request)
@@ -156,7 +161,7 @@ class HttpClient:
                 # context.check_hostname = False
                 # context.verify_mode = ssl.CERT_NONE
                 context = ssl.create_default_context(ssl.Purpose.SERVER_AUTH)
-                context.load_verify_locations('server.crt')
+                context.load_verify_locations('../certs/server.crt')
             else:
                 context = ssl.create_default_context()
             sock = context.wrap_socket(sock, server_hostname=self.host)
@@ -219,29 +224,20 @@ class HttpClient:
         while True:
             try:
                 part = sock.recv(4096)
-                print("part received: ", part)
                 if not part:
                     break
                 response += part
-                print("part added to response")
             except socket.timeout:
-                print("El tiempo de espera del socket se ha agotado")
                 break
             except Exception as error:
                 print(f"Some error occurred while receiving response: {error}")
 
         try:
-            print(f"!!!!!Receiving response in client: {response}")
             encoding = chardet.detect(response)["encoding"]
             encoding = encoding if encoding else "utf-8"
-            print(f"encoding: {encoding}")
-            print(f"El mensaje que se recibe en el cliente mide: {len(response)}")
             decoded_response = response.decode(encoding)
-            print("Decoded_response: ", decoded_response)
             parsed_response = self.parse_http_response(decoded_response)
-            print("Parsed Response: ", parsed_response)
         except Exception as error:
-            print(error)
             parsed_response = HttpResponse(
                 "HTTP/1.1",
                 "500",
@@ -249,7 +245,6 @@ class HttpClient:
                 {},
                 "This is a critical error on the client side.",
             )
-        print(len(decoded_response))
         return parsed_response
 
     def parse_http_response(self, response_str: str) -> HttpResponse:
@@ -336,9 +331,6 @@ class HttpClient:
             raise Exception(f'Unsupported Content-Encoding: {encoding}')
 
     def is_response_complete(self, headers, body):
-        print(headers)
-        print("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
-        print(len(body))
         if 'Transfer-Encoding' in headers and headers['Transfer-Encoding'].endswith('chunked'):
             return body.endswith('0\r\n\r\n')
         elif 'Content-Length' in headers:
@@ -346,30 +338,141 @@ class HttpClient:
                     or len(body) == int(headers['Content-Length'])) # In case of redirect
         return True
 
+# def parse_arguments():
+#     parser = argparse.ArgumentParser(description='Process some HTTP request parameters.')
+    
+#     # Define los argumentos esperados
+#     parser.add_argument('-m', '--method', type=str, required=True, help='HTTP method')
+#     parser.add_argument('-u', '--url', type=str, required=True, help='Request URL')
+#     parser.add_argument('-h', '--headers', type=str, required=True, help='Request headers as a dictionary')
+#     parser.add_argument('-d', '--data', type=str, required=False, help='Request body data')
+
+#     # Analiza los argumentos
+#     args = parser.parse_args()
+
+#     # Convierte el string de headers a un diccionario
+#     try:
+#         headers = ast.literal_eval(args.headers)
+#         if not isinstance(headers, dict):
+#             raise ValueError
+#     except (ValueError, SyntaxError):
+#         raise ValueError("Headers must be a valid dictionary string.")
+    
+#     data = args.data if args.data else ""
+    
+#     return args.method, args.url, headers, data
+import argparse
+import ast
+import shlex
+import re
+import sys  # Asegúrate de importar sys
+
+def parse_arguments():
+    parser = argparse.ArgumentParser(description='Process some HTTP request parameters.', add_help=False)
+    
+    # Define los argumentos esperados
+    parser.add_argument('-m', '--method', type=str, required=True, help='HTTP method')
+    parser.add_argument('-u', '--url', type=str, required=True, help='Request URL')
+    parser.add_argument('-h', '--headers', type=str, required=True, help='Request headers as a dictionary')
+    parser.add_argument('-d', '--data', type=str, required=False, help='Request body data')
+
+    # Analiza los argumentos
+    args = parser.parse_args(shlex.split(' '.join(sys.argv[1:])))
+    
+    # Convierte el string de headers a un diccionario
+    try:
+        headers = ast.literal_eval(args.headers)
+        if not isinstance(headers, dict):
+            raise ValueError
+    except (ValueError, SyntaxError):
+        raise ValueError("Headers must be a valid dictionary string.")
+    
+    # Eliminar el símbolo '\' después de "Bearer"
+    if "Authorization" in headers:
+        headers["Authorization"] = re.sub(r'Bearer\\ ', 'Bearer ', headers["Authorization"])
+    
+    data = args.data if args.data else ""
+    
+    return args.method, args.url, headers, data
+
 if __name__ == '__main__':
-    requests = [
-        HttpRequest(
-            method='GET',
-            uri='/',
-            headers={
-                'Host': 'www.google.com',
-                'User-Agent': 'CustomHttpClient/1.0'
-            }
-        ),
-        HttpRequest(
-            method='GET',
-            uri='/search',
-            headers={
-                'Host': 'www.google.com',
-                'User-Agent': 'CustomHttpClient/1.0'
-            }
-        )
-    ]
+    method, url, headers, data = parse_arguments()
+    
+    pattern = re.compile(r"^(https?)://([^:/]+)(?::(\d+))?(.*)$")
+    
+    matches = pattern.match(url)
+    
+    if matches:
+        scheme = matches.group(1)
+        host = matches.group(2)
+        port = matches.group(3)
+        uri = matches.group(4)
 
-    # Proporciona credenciales de autenticación
-    client = HttpClient('www.google.com', 443, auth=('username', 'password'))
-    responses = client.send_requests(requests, use_pipeline=True)
+        use_tls = scheme == "https"
 
-    for request, response in zip(requests, responses):
-        print(request.build_request(), '\n\n\n\n')
-        print(response)
+        if not port:
+            port = "443" if use_tls else "80"
+        
+        port = int(port)
+
+        client = HttpClient(host, port, use_tls)
+
+        requests = [
+            HttpRequest(method, uri, headers, data)
+        ]
+
+        response = client.send_requests(requests)[0]
+        
+        status = int(response.status_code)
+        body = response.body
+
+        _response = {
+            "status":status,
+            "body":body
+        }
+
+        print(json.dumps(_response))
+    
+    else:
+        print(f"Some error found while parsing url {url}.")
+ 
+# if __name__ == '__main__':
+#     method, url, headers, data = parse_arguments()
+    
+#     pattern = re.compile(r"^(https?)://([^:/]+)(?::(\d+))?(.*)$")
+    
+#     matches = pattern.match(url)
+    
+#     if matches:
+#         scheme = matches.group(1)
+#         host = matches.group(2)
+#         port = matches.group(3)
+#         uri = matches.group(4)
+
+#         use_tls = scheme == "https"
+
+#         if not port:
+#             port = "443" if use_tls else "80"
+        
+#         port = int(port)
+
+#         client = HttpClient(host, port, use_tls)
+
+#         requests = [
+#             HttpRequest(method, uri, headers, data)
+#         ]
+
+#         response = client.send_requests(requests)[0]
+        
+#         status = int(response.status_code)
+#         body = response.body
+
+#         _response = {
+#             "status":status,
+#             "body":body
+#         }
+
+#         print(json.dumps(_response))
+    
+#     else:
+#         print(f"Some error found while parsing url {url}.")

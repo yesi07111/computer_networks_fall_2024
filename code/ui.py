@@ -403,7 +403,7 @@ class App:
         port = int(self.server_port.get())
 
         def run_server():
-            server = HttpServer(host, port, self.use_tls.get(), certfile='server.crt', keyfile='server.key')
+            server = HttpServer(host, port, self.use_tls.get(), certfile='../certs/server.crt', keyfile='../certs/server.key')
             server.start()
 
         server_thread = Thread(target=run_server, daemon=True)
